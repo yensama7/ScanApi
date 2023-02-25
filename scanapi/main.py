@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, Depends, HTTPException, Request, status
 from fastapi.responses import Response, JSONResponse
 from fastapi.encoders import jsonable_encoder
@@ -24,7 +25,7 @@ def get_db():
         db.close()
 
 
-# problem line/function does not like coroutine, accepts binarydata instead
+# problem line/function does not like coroutine, accepts binary data instead
 
 # code to generate qr_code
 def generate_qr_code(link):
@@ -53,7 +54,6 @@ def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 
-
 def get_password_hash(password):
     return pwd_context.hash(password)
 
@@ -63,78 +63,78 @@ def home():
     return "File Sharing service"
 
 
-@app.post("/file/", response_model=schemas.File)
-def create_file_code(file: schemas.FileCreate, db: Session = Depends(get_db)):
+@app.post("/endpoint/", response_model=schemas.EndPoint)
+def create_file_code(endpoint: schemas.EndPointCreate, db: Session = Depends(get_db)):
     # validate url
-    if not validators.url(file.url):
-        raise HTTPException(detail="file endpoint does not exist")
+    if not validators.url(endpoint.url):
+        raise HTTPException(detail="file endpoint does not exist", status_code=status.HTTP_404_NOT_FOUND)
 
     # check if name of file already exists
-    file_get = db.query(models.FileModel).filter(models.FileModel.name == file.name).first()
+    ed_get = db.query(models.FileModel).filter(models.FileModel.name == endpoint.name).first()
 
     # if file doesn't exist
 
-    if not file_get:
+    if not ed_get:
         # generate qr_code data
-        code_data = generate_qr_code(file.url)
+        code_data = generate_qr_code(endpoint.url)
 
-        file_get = models.FileModel(name=file.name, qr_code=code_data,
-                                    url=file.url, password=get_password_hash(file.password))
+        ed_get = models.FileModel(name=endpoint.name, qr_code=code_data,
+                                  url=endpoint.url, password=get_password_hash(endpoint.password))
 
         # commit changes to database
-        db.add(file_get)
+        db.add(ed_get)
         db.commit()
-        db.refresh(file_get)
+        db.refresh(ed_get)
 
-    return file
+    return endpoint
 
-# learn how to use passwords and dependecies
+# learn how to use passwords and dependencies
 
 
-@app.get('/files/{file_name}')
-def return_file_code(file_name: str,
+@app.get('/endpoints/{ed_name}')
+def return_file_code(ed_name: str,
                      form_data: schemas.PasswordForm = Depends(),
                      db: Session = Depends(get_db)):
 
-    file_endpoint = db.query(models.FileModel).filter(models.FileModel.name == file_name).first()
+    endpoint = db.query(models.FileModel).filter(models.FileModel.name == ed_name).first()
     # check if endpoint does not exist raise error if so
-    if not file_endpoint:
-        raise HTTPException(detail=f'{file_name} does not exist', status_code=404)
+    if not endpoint:
+        raise HTTPException(detail=f'{ed_name} does not exist', status_code=404)
     # check if file already exists
     #####
     #####
     #
     # check if the password is correct4
     # problem line of code
-    if not verify_password(form_data.password, file_endpoint.password):
+    if not verify_password(form_data.password, endpoint.password):
         raise HTTPException(status_code=400, detail='Invalid Password')
 
-    qr_code = file_endpoint.qr_code
+    qr_code = endpoint.qr_code
 
     return Response(content=qr_code, media_type='image/png')
 
 
 # to allow databases to be read directly like this add orm_mode = True under class config in schemas
-@app.get('/files/', response_model=list[schemas.File])
+@app.get('/endpoints/', response_model=list[schemas.EndPoint])
 def return_files(skip: int, limit: int, db: Session = Depends(get_db)):
     return db.query(models.FileModel).offset(skip).limit(limit).all()
 
 
-@app.patch('/file/{file_name}')
-async def update_file(file_name: str, file: schemas.FileUpdate, db: Session = Depends(get_db)):
+@app.patch('/endpoint/{ed_name}')
+async def update_file(ed_name: str, endpoint: schemas.EndpointUpdate, db: Session = Depends(get_db)):
 
     # find the stored file
-    stored_file = db.query(models.FileModel).filter(models.FileModel.name == file_name).first()
+    stored_ed = db.query(models.FileModel).filter(models.FileModel.name == ed_name).first()
 
     # have to change this to make the code better later though, will give problems
     stored_file_dict = {
-        'name': stored_file.name,
-        'url': stored_file.url,
-        'password': get_password_hash(stored_file.password)
+        'name': stored_ed.name,
+        'url': stored_ed.url,
+        'password': get_password_hash(stored_ed.password)
     }
 
-    stored_file_model = schemas.FileUpdate(**stored_file_dict)
-    update_data = file.dict(exclude_unset=True)
+    stored_file_model = schemas.EndpointUpdate(**stored_file_dict)
+    update_data = endpoint.dict(exclude_unset=True)
     updated_file = stored_file_model.copy(update=update_data)
 
 
@@ -146,5 +146,3 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content=jsonable_encoder({'detail': exc.errors(), 'body': exc.body})
     )
-
-

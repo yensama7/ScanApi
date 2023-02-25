@@ -2,7 +2,7 @@ from pydantic import BaseModel, UUID1
 from fastapi.param_functions import Form
 
 
-class FileBase(BaseModel):
+class EndPointBase(BaseModel):
     name: str
     url: str
 
@@ -10,16 +10,16 @@ class FileBase(BaseModel):
         orm_mode = True
 
 
-class FileCreate(FileBase):
+class EndPointCreate(EndPointBase):
     password: str
 
 
 # you can modify even the password. Addition functionality to be added requiring editor to be creator
-class FileUpdate(FileCreate):
+class EndpointUpdate(EndPointCreate):
     pass
 
 
-class File(FileBase):
+class EndPoint(EndPointBase):
     pass
 
 
