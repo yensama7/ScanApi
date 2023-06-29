@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, Depends, HTTPException, Request, status
 from fastapi.responses import Response, JSONResponse
 from fastapi.encoders import jsonable_encoder
@@ -88,6 +87,7 @@ def create_file_code(endpoint: schemas.EndPointCreate, db: Session = Depends(get
 
     return endpoint
 
+
 # learn how to use passwords and dependencies
 
 
@@ -95,7 +95,6 @@ def create_file_code(endpoint: schemas.EndPointCreate, db: Session = Depends(get
 def return_file_code(ed_name: str,
                      form_data: schemas.PasswordForm = Depends(),
                      db: Session = Depends(get_db)):
-
     endpoint = db.query(models.FileModel).filter(models.FileModel.name == ed_name).first()
     # check if endpoint does not exist raise error if so
     if not endpoint:
@@ -120,22 +119,26 @@ def return_files(skip: int, limit: int, db: Session = Depends(get_db)):
     return db.query(models.FileModel).offset(skip).limit(limit).all()
 
 
-@app.patch('/endpoint/{ed_name}')
+@app.patch('/endpoint/{ed_name}', response_model=schemas.EndPoint)
 async def update_file(ed_name: str, endpoint: schemas.EndpointUpdate, db: Session = Depends(get_db)):
-
     # find the stored file
     stored_ed = db.query(models.FileModel).filter(models.FileModel.name == ed_name).first()
 
-    # have to change this to make the code better later though, will give problems
-    stored_file_dict = {
-        'name': stored_ed.name,
-        'url': stored_ed.url,
-        'password': get_password_hash(stored_ed.password)
-    }
+    if stored_ed:  # if the endpoint is found
+        stored_data_to_update = schemas.EndpointUpdate(name=stored_ed.name, url=stored_ed.url,
+                                                       password=stored_ed.password)  # check the docs
+        update_data = endpoint.dict(exclude_unset=True)
+        updated_data = stored_data_to_update.copy(update=update_data)
 
-    stored_file_model = schemas.EndpointUpdate(**stored_file_dict)
-    update_data = endpoint.dict(exclude_unset=True)
-    updated_file = stored_file_model.copy(update=update_data)
+        stored_ed.name = updated_data.name
+        stored_ed.url = updated_data.url
+        stored_ed.password = get_password_hash(updated_data.password)
+
+        # update the database
+        db.commit()
+        db.refresh(stored_ed)
+
+        return updated_data
 
 
 # raise a better request validation error for user requests
