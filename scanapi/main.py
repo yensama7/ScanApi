@@ -85,8 +85,10 @@ def create_file_code(endpoint: schemas.EndPointCreate, db: Session = Depends(get
         db.commit()
         db.refresh(ed_get)
 
-    return endpoint
+        return endpoint
 
+    else:
+        raise HTTPException(detail="file already exists", status_code=status.HTTP_409_CONFLICT)
 
 # learn how to use passwords and dependencies
 
@@ -95,9 +97,9 @@ def create_file_code(endpoint: schemas.EndPointCreate, db: Session = Depends(get
 def return_file_code(ed_name: str,
                      form_data: schemas.PasswordForm = Depends(),
                      db: Session = Depends(get_db)):
-    endpoint = db.query(models.FileModel).filter(models.FileModel.name == ed_name).first()
+    ed_get = db.query(models.FileModel).filter(models.FileModel.name == ed_name).first()
     # check if endpoint does not exist raise error if so
-    if not endpoint:
+    if not ed_get:
         raise HTTPException(detail=f'{ed_name} does not exist', status_code=404)
     # check if file already exists
     #####
@@ -105,16 +107,16 @@ def return_file_code(ed_name: str,
     #
     # check if the password is correct4
     # problem line of code
-    if not verify_password(form_data.password, endpoint.password):
+    if not verify_password(form_data.password, ed_get.password):
         raise HTTPException(status_code=400, detail='Invalid Password')
 
-    qr_code = endpoint.qr_code
+    qr_code = ed_get.qr_code
 
     return Response(content=qr_code, media_type='image/png')
 
 
 # to allow databases to be read directly like this add orm_mode = True under class config in schemas
-@app.get('/endpoints/', response_model=list[schemas.EndPoint])
+@app.get('/endpoints/', response_model=list[schemas.EndPointCreate])  # change it back!
 def return_files(skip: int, limit: int, db: Session = Depends(get_db)):
     return db.query(models.FileModel).offset(skip).limit(limit).all()
 
@@ -139,6 +141,25 @@ async def update_file(ed_name: str, endpoint: schemas.EndpointUpdate, db: Sessio
         db.refresh(stored_ed)
 
         return updated_data
+
+
+# for deletion of selected database element
+@app.delete('/endpoints/{ed_name}', response_model=schemas.EndPointBase)
+async def delete_file(ed_name: str, form_data: schemas.PasswordForm = Depends(), db: Session = Depends(get_db)):
+    # find stored file
+    stored_ed = db.query(models.FileModel).filter(models.FileModel.name == ed_name).first()
+    info_dict = {'name':  stored_ed.name, 'password':stored_ed.password, "url":stored_ed.url}
+    # request password, if true:
+
+    if not verify_password(form_data.password,stored_ed.password):
+        raise HTTPException(detail="file endpoint does not exist", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    db.delete(stored_ed)
+    db.commit()
+
+    # return information about the item deleted
+    # find a way to make this jsonable
+    return jsonable_encoder(info_dict)
 
 
 # raise a better request validation error for user requests
