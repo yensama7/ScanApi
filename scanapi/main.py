@@ -116,7 +116,7 @@ def return_file_code(ed_name: str,
 
 
 # to allow databases to be read directly like this add orm_mode = True under class config in schemas
-@app.get('/endpoints/', response_model=list[schemas.EndPointCreate])  # change it back!
+@app.get('/endpoints/', response_model=list[schemas.EndPoint])
 def return_files(skip: int, limit: int, db: Session = Depends(get_db)):
     return db.query(models.FileModel).offset(skip).limit(limit).all()
 
